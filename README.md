@@ -18,4 +18,4 @@ agent = ReActAgent(tools=tools, model="deepseek/deepseek-v4-flash", project_dire
 - system prompt 末尾的目录约束
 - temperature=0 / max_tokens=3000
 
-注意：deepseek/deepseek-v4-flash 通过 OpenRouter 调用，没有免费版，需要账户有可用额度。
+
