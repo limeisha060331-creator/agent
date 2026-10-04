@@ -52,23 +52,6 @@ class ReActAgent:
             action = action_match.group(1)
             tool_name, args = self.parse_action(action)
 
-            # 文件工具只能访问启动程序时传入的项目目录，避免模型写入 C:\\ 等项目外的位置。
-            if tool_name in {"read_file", "write_to_file"} and args:
-                requested_path = os.path.abspath(args[0])
-                allowed_root = os.path.abspath(self.project_directory)
-                try:
-                    is_in_project = os.path.commonpath([requested_path, allowed_root]) == allowed_root
-                except ValueError:
-                    is_in_project = False
-                if not is_in_project:
-                    observation = (
-                        f"工具执行错误：文件路径必须位于项目目录 {allowed_root} 内；"
-                        f"不能访问 {requested_path}。"
-                    )
-                    print(f"\n\n🔍 Observation：{observation}")
-                    messages.append({"role": "user", "content": f"<observation>{observation}</observation>"})
-                    continue
-
             print(f"\n\n🔧 Action: {tool_name}({', '.join(args)})")
             # 只有终端命令才需要询问用户，其他的工具直接执行
             should_continue = input(f"\n\n是否继续？（Y/N）") if tool_name == "run_terminal_command" else "y"
@@ -102,16 +85,10 @@ class ReActAgent:
             os.path.abspath(os.path.join(self.project_directory, f))
             for f in os.listdir(self.project_directory)
         )
-        rendered_prompt = Template(system_prompt_template).substitute(
+        return Template(system_prompt_template).substitute(
             operating_system=self.get_operating_system_name(),
             tool_list=tool_list,
             file_list=file_list
-        )
-        return (
-            f"{rendered_prompt}\n\n"
-            f"重要：本次项目目录是 {os.path.abspath(self.project_directory)}。"
-            "所有 read_file 和 write_to_file 的绝对路径必须位于该目录内，"
-            "例如在该目录中创建 index.html、style.css、script.js；不得使用 C:\\snake_game 或其他目录。"
         )
 
     @staticmethod
@@ -128,10 +105,6 @@ class ReActAgent:
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            temperature=0,
-            # OpenRouter 会按此上限预留额度；免费账户当前可用额度不足 6000。
-            # 3000 足够让模型一次写入一个网页文件，也低于账户的 4000-token 限制。
-            max_tokens=3000,
         )
         content = response.choices[0].message.content
         messages.append({"role": "assistant", "content": content})
@@ -243,7 +216,7 @@ def main(project_directory):
     project_dir = os.path.abspath(project_directory)
 
     tools = [read_file, write_to_file, run_terminal_command]
-    agent = ReActAgent(tools=tools, model="openai/gpt-4o", project_directory=project_dir)
+    agent = ReActAgent(tools=tools, model="deepseek/deepseek-v4-flash", project_directory=project_dir)
 
     task = input("请输入任务：")
 
