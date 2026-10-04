@@ -1,20 +1,21 @@
-修改了来自MARKTECH的内容
+修改了来自 MARKTECH 的内容
 
-1. 给文件工具加了路径安全限制
-在 ReAct 循环里，执行工具前先判断：如果工具是 read_file 或 write_to_file，就把目标路径解析成绝对路径，检查它是否在项目目录内。不在的话就不执行，而是返回一条“路径必须在项目目录内”的错误提示，让模型重新规划。
-if tool_name in {"read_file", "write_to_file"} and args:
-    requested_path = os.path.abspath(args[0])
-    allowed_root = os.path.abspath(self.project_directory)
-    ...
-    if not is_in_project:
-        observation = f"工具执行错误：文件路径必须位于项目目录 {allowed_root} 内……"
+只改了模型这一处，在 agent.py 的 main 函数里（约第 219 行）：
 
-2. 在 system prompt 末尾追加了目录约束（约 102 行处）
-原本只是直接返回渲染好的模板，改成先渲染再拼接一段提示，明确告诉模型本次项目目录是哪个，并要求 read_file / write_to_file 的路径必须在该目录内（举例说在该目录里创建 index.html、style.css、script.js，不要用 C:\snake_game）。
+```python
+# 原版
+agent = ReActAgent(tools=tools, model="openai/gpt-4o", project_directory=project_dir)
 
-3. 调整了模型调用参数（约 128 行处）
-给 chat.completions.create 加了：
-temperature=0,
-max_tokens=3000,
-（为了配合 OpenRouter 的额度上限）
-整体目的很明确：防止模型把文件写到项目目录之外，同时固定采样温度、限制输出长度来适配免费额度。
+# 现在
+agent = ReActAgent(tools=tools, model="deepseek/deepseek-v4-flash", project_directory=project_dir)
+```
+
+除这一行之外，其余代码与原始版本完全一致。
+
+之前尝试过的改动都已去掉：
+
+- 文件工具的路径安全限制
+- system prompt 末尾的目录约束
+- temperature=0 / max_tokens=3000
+
+注意：deepseek/deepseek-v4-flash 通过 OpenRouter 调用，没有免费版，需要账户有可用额度。
